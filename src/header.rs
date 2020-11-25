@@ -7,7 +7,8 @@
 // except according to those terms.
 
 use bytes::{Buf, BufMut, BytesMut, LittleEndian};
-use {Result, Error};
+use Error;
+use Result;
 
 pub const PORTABLE_STORAGE_SIGNATUREA: u32 = 0x01011101;
 pub const PORTABLE_STORAGE_SIGNATUREB: u32 = 0x01020101;

@@ -6,8 +6,8 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-extern crate linked_hash_map;
 extern crate bytes;
+extern crate linked_hash_map;
 
 #[macro_use]
 extern crate serde;
@@ -21,14 +21,14 @@ extern crate failure_derive;
 
 use std::ops::Index;
 
-use linked_hash_map::LinkedHashMap;
 use bytes::{Buf, BufMut, BytesMut, LittleEndian};
+use linked_hash_map::LinkedHashMap;
 
-pub mod ser;
 pub mod de;
+pub mod ser;
 
-pub use ser::to_section;
 pub use de::from_section;
+pub use ser::to_section;
 
 #[macro_export]
 macro_rules! ensure_eof {
@@ -346,11 +346,15 @@ pub struct Section {
 
 impl Section {
     pub fn new() -> Section {
-        Section { entries: LinkedHashMap::new() }
+        Section {
+            entries: LinkedHashMap::new(),
+        }
     }
 
     pub fn with_capacity(capacity: usize) -> Section {
-        Section { entries: LinkedHashMap::with_capacity(capacity) }
+        Section {
+            entries: LinkedHashMap::with_capacity(capacity),
+        }
     }
 
     /// Insernt an storage entry.
@@ -385,7 +389,6 @@ impl Section {
         raw_size::write(buf, section.entries.len());
 
         for (name, entry) in section.entries.iter() {
-
             write_name(buf, &*name);
             StorageEntry::write(buf, &entry);
         }

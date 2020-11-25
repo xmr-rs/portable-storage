@@ -6,9 +6,9 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-extern crate uuid;
-extern crate serde;
 extern crate bytes;
+extern crate serde;
+extern crate uuid;
 
 extern crate failure;
 #[macro_use]

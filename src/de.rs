@@ -8,11 +8,13 @@
 
 use linked_hash_map::LinkedHashMap;
 
-use serde::de::value::Error;
-use serde::de::{Deserialize, Deserializer, DeserializeSeed, Error as ErrorTrait, MapAccess,
-                SeqAccess, Visitor};
+use serde::de::{
+    value::Error, Deserialize, DeserializeSeed, Deserializer, Error as ErrorTrait, MapAccess,
+    SeqAccess, Visitor,
+};
 
-use {Section, StorageEntry};
+use Section;
+use StorageEntry;
 
 pub fn from_section<'de, T: Deserialize<'de>>(section: Section) -> Result<T, Error> {
     T::deserialize(SectionDeserializer(section))
@@ -43,58 +45,70 @@ impl<'de> Deserializer<'de> for SectionDeserializer {
         deserialize_map deserialize_identifier deserialize_ignored_any
     }
 
-    fn deserialize_unit_struct<V>(self,
-                                  _name: &'static str,
-                                  _visitor: V)
-                                  -> Result<V::Value, Self::Error>
-        where V: Visitor<'de>
+    fn deserialize_unit_struct<V>(
+        self,
+        _name: &'static str,
+        _visitor: V,
+    ) -> Result<V::Value, Self::Error>
+    where
+        V: Visitor<'de>,
     {
         Err(Error::custom("`deserialize_unit_struct` isn't supported"))
     }
 
-    fn deserialize_newtype_struct<V>(self,
-                                     _name: &'static str,
-                                     _visitor: V)
-                                     -> Result<V::Value, Self::Error>
-        where V: Visitor<'de>
+    fn deserialize_newtype_struct<V>(
+        self,
+        _name: &'static str,
+        _visitor: V,
+    ) -> Result<V::Value, Self::Error>
+    where
+        V: Visitor<'de>,
     {
-        Err(Error::custom("`deserialize_newtype_struct` isn't supported"))
+        Err(Error::custom(
+            "`deserialize_newtype_struct` isn't supported",
+        ))
     }
 
     fn deserialize_tuple<V>(self, _len: usize, _visitor: V) -> Result<V::Value, Self::Error>
-        where V: Visitor<'de>
+    where
+        V: Visitor<'de>,
     {
         Err(Error::custom("`deserialize_tuple` isn't supported"))
     }
 
-    fn deserialize_tuple_struct<V>(self,
-                                   _name: &'static str,
-                                   _len: usize,
-                                   _visitor: V)
-                                   -> Result<V::Value, Self::Error>
-        where V: Visitor<'de>
+    fn deserialize_tuple_struct<V>(
+        self,
+        _name: &'static str,
+        _len: usize,
+        _visitor: V,
+    ) -> Result<V::Value, Self::Error>
+    where
+        V: Visitor<'de>,
     {
         Err(Error::custom("`deserialize_tuple_struct` isn't supported"))
     }
 
-    fn deserialize_struct<V>(self,
-                             _name: &'static str,
-                             _fields: &'static [&'static str],
-                             visitor: V)
-                             -> Result<V::Value, Self::Error>
-        where V: Visitor<'de>
+    fn deserialize_struct<V>(
+        self,
+        _name: &'static str,
+        _fields: &'static [&'static str],
+        visitor: V,
+    ) -> Result<V::Value, Self::Error>
+    where
+        V: Visitor<'de>,
     {
-
         let iter = self.0.into_iter();
         visitor.visit_map(MapDeserializer { iter, value: None })
     }
 
-    fn deserialize_enum<V>(self,
-                           _name: &'static str,
-                           _variants: &'static [&'static str],
-                           _visitor: V)
-                           -> Result<V::Value, Self::Error>
-        where V: Visitor<'de>
+    fn deserialize_enum<V>(
+        self,
+        _name: &'static str,
+        _variants: &'static [&'static str],
+        _visitor: V,
+    ) -> Result<V::Value, Self::Error>
+    where
+        V: Visitor<'de>,
     {
         Err(Error::custom("`deserialize_enum` isn't supported"))
     }
@@ -110,7 +124,8 @@ impl<'de> Deserializer<'de> for StorageEntryDeserializer {
     type Error = Error;
 
     fn deserialize_any<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-        where V: Visitor<'de>
+    where
+        V: Visitor<'de>,
     {
         match self.0 {
             StorageEntry::U64(v) => visitor.visit_u64(v),
@@ -125,12 +140,10 @@ impl<'de> Deserializer<'de> for StorageEntryDeserializer {
             StorageEntry::Bool(v) => visitor.visit_bool(v),
             StorageEntry::Buf(v) => visitor.visit_byte_buf(v),
             StorageEntry::Array(v) => visitor.visit_seq(ArrayDeserializer(v.into_iter())),
-            StorageEntry::Section(v) => {
-                visitor.visit_map(MapDeserializer {
-                                      iter: v.into_iter(),
-                                      value: None,
-                                  })
-            }
+            StorageEntry::Section(v) => visitor.visit_map(MapDeserializer {
+                iter: v.into_iter(),
+                value: None,
+            }),
         }
     }
 
@@ -147,13 +160,13 @@ impl<'de> SeqAccess<'de> for ArrayDeserializer {
     type Error = Error;
 
     fn next_element_seed<T>(&mut self, seed: T) -> Result<Option<T::Value>, Self::Error>
-        where T: DeserializeSeed<'de>
+    where
+        T: DeserializeSeed<'de>,
     {
         match self.0.next() {
-            Some(element) => {
-                seed.deserialize(StorageEntryDeserializer(element))
-                    .map(Some)
-            }
+            Some(element) => seed
+                .deserialize(StorageEntryDeserializer(element))
+                .map(Some),
             None => Ok(None),
         }
     }
@@ -174,7 +187,8 @@ impl<'de> Deserializer<'de> for KeyDeserializer {
     type Error = Error;
 
     fn deserialize_any<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-        where V: Visitor<'de>
+    where
+        V: Visitor<'de>,
     {
         visitor.visit_str(self.key.as_str())
     }
@@ -195,7 +209,8 @@ impl<'de> MapAccess<'de> for MapDeserializer {
     type Error = Error;
 
     fn next_key_seed<K>(&mut self, seed: K) -> Result<Option<K::Value>, Self::Error>
-        where K: DeserializeSeed<'de>
+    where
+        K: DeserializeSeed<'de>,
     {
         match self.iter.next() {
             Some((key, value)) => {
@@ -208,7 +223,8 @@ impl<'de> MapAccess<'de> for MapDeserializer {
     }
 
     fn next_value_seed<V>(&mut self, seed: V) -> Result<V::Value, Self::Error>
-        where V: DeserializeSeed<'de>
+    where
+        V: DeserializeSeed<'de>,
     {
         match self.value.take() {
             Some(value) => seed.deserialize(StorageEntryDeserializer(value)),
