@@ -369,8 +369,6 @@ impl Serializer for StorageEntrySerializer {
 pub mod tests {
     use super::*;
 
-    use portable_storage::StorageEntry;
-
     #[derive(Serialize)]
     struct TestVector0 {
         id: u8,
