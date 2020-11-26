@@ -6,23 +6,10 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-extern crate bytes;
-extern crate linked_hash_map;
-
-#[macro_use]
-extern crate serde;
-#[cfg_attr(test, macro_use)]
-#[cfg(test)]
-extern crate serde_derive;
-
-extern crate failure;
-#[macro_use]
-extern crate failure_derive;
-
-use std::ops::Index;
-
-use bytes::{Buf, BufMut, BytesMut, LittleEndian};
+use bytes::{Buf, BufMut, BytesMut};
+use failure::Fail;
 use linked_hash_map::LinkedHashMap;
+use std::ops::Index;
 
 pub mod de;
 pub mod ser;
@@ -103,15 +90,15 @@ impl StorageEntry {
         let entry = match serialize_type {
             SERIALIZE_TYPE_INT64 => {
                 ensure_eof!(buf, 8);
-                StorageEntry::I64(buf.get_i64::<LittleEndian>())
+                StorageEntry::I64(buf.get_i64_le())
             }
             SERIALIZE_TYPE_INT32 => {
                 ensure_eof!(buf, 4);
-                StorageEntry::I32(buf.get_i32::<LittleEndian>())
+                StorageEntry::I32(buf.get_i32_le())
             }
             SERIALIZE_TYPE_INT16 => {
                 ensure_eof!(buf, 2);
-                StorageEntry::I16(buf.get_i16::<LittleEndian>())
+                StorageEntry::I16(buf.get_i16_le())
             }
             SERIALIZE_TYPE_INT8 => {
                 ensure_eof!(buf, 1);
@@ -119,15 +106,15 @@ impl StorageEntry {
             }
             SERIALIZE_TYPE_UINT64 => {
                 ensure_eof!(buf, 8);
-                StorageEntry::U64(buf.get_u64::<LittleEndian>())
+                StorageEntry::U64(buf.get_u64_le())
             }
             SERIALIZE_TYPE_UINT32 => {
                 ensure_eof!(buf, 4);
-                StorageEntry::U32(buf.get_u32::<LittleEndian>())
+                StorageEntry::U32(buf.get_u32_le())
             }
             SERIALIZE_TYPE_UINT16 => {
                 ensure_eof!(buf, 2);
-                StorageEntry::U16(buf.get_u16::<LittleEndian>())
+                StorageEntry::U16(buf.get_u16_le())
             }
             SERIALIZE_TYPE_UINT8 => {
                 ensure_eof!(buf, 1);
@@ -135,7 +122,7 @@ impl StorageEntry {
             }
             SERIALIZE_TYPE_DOUBLE => {
                 ensure_eof!(buf, 8);
-                StorageEntry::Double(buf.get_f64::<LittleEndian>())
+                StorageEntry::Double(buf.get_f64_le())
             }
             SERIALIZE_TYPE_STRING => {
                 let b = read_buf::<B>(buf)?;
@@ -169,17 +156,17 @@ impl StorageEntry {
             StorageEntry::U64(ref v) => {
                 buf.reserve(9);
                 buf.put_u8(SERIALIZE_TYPE_UINT64);
-                buf.put_u64::<LittleEndian>(*v);
+                buf.put_u64_le(*v);
             }
             StorageEntry::U32(ref v) => {
                 buf.reserve(5);
                 buf.put_u8(SERIALIZE_TYPE_UINT32);
-                buf.put_u32::<LittleEndian>(*v);
+                buf.put_u32_le(*v);
             }
             StorageEntry::U16(ref v) => {
                 buf.reserve(3);
                 buf.put_u8(SERIALIZE_TYPE_UINT16);
-                buf.put_u16::<LittleEndian>(*v);
+                buf.put_u16_le(*v);
             }
             StorageEntry::U8(ref v) => {
                 buf.reserve(2);
@@ -189,17 +176,17 @@ impl StorageEntry {
             StorageEntry::I64(ref v) => {
                 buf.reserve(9);
                 buf.put_u8(SERIALIZE_TYPE_INT64);
-                buf.put_i64::<LittleEndian>(*v);
+                buf.put_i64_le(*v);
             }
             StorageEntry::I32(ref v) => {
                 buf.reserve(5);
                 buf.put_u8(SERIALIZE_TYPE_INT32);
-                buf.put_i32::<LittleEndian>(*v);
+                buf.put_i32_le(*v);
             }
             StorageEntry::I16(ref v) => {
                 buf.reserve(3);
                 buf.put_u8(SERIALIZE_TYPE_INT16);
-                buf.put_i16::<LittleEndian>(*v);
+                buf.put_i16_le(*v);
             }
             StorageEntry::I8(ref v) => {
                 buf.reserve(2);
@@ -209,12 +196,12 @@ impl StorageEntry {
             StorageEntry::Double(ref v) => {
                 buf.reserve(9);
                 buf.put_u8(SERIALIZE_TYPE_DOUBLE);
-                buf.put_f64::<LittleEndian>(*v);
+                buf.put_f64_le(*v);
             }
             StorageEntry::Bool(ref v) => {
                 buf.reserve(2);
                 buf.put_u8(SERIALIZE_TYPE_BOOL);
-                buf.put_u8(if *v == false { 0 } else { 1 });
+                buf.put_u8(if !v { 0 } else { 1 });
             }
             StorageEntry::Buf(ref v) => {
                 buf.reserve(1);
@@ -253,7 +240,7 @@ impl StorageEntry {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct Array {
     array: Vec<StorageEntry>,
     serialize_type: Option<u8>,
@@ -261,10 +248,7 @@ pub struct Array {
 
 impl Array {
     pub fn new() -> Array {
-        Array {
-            array: Vec::new(),
-            serialize_type: None,
-        }
+        Default::default()
     }
 
     pub fn with_capacity(capacity: usize) -> Array {
@@ -276,6 +260,10 @@ impl Array {
 
     pub fn len(&self) -> usize {
         self.array.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
     }
 
     pub fn push(&mut self, entry: StorageEntry) -> std::result::Result<(), ()> {
@@ -290,10 +278,6 @@ impl Array {
 
         self.array.push(entry);
         Ok(())
-    }
-
-    pub fn into_iter(self) -> std::vec::IntoIter<StorageEntry> {
-        self.array.into_iter()
     }
 
     fn read<B: Buf>(buf: &mut B, mut serialize_type: u8) -> Result<Array> {
@@ -331,6 +315,16 @@ impl Array {
     }
 }
 
+impl IntoIterator for Array {
+    type Item = StorageEntry;
+
+    type IntoIter = std::vec::IntoIter<StorageEntry>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.array.into_iter()
+    }
+}
+
 impl Index<usize> for Array {
     type Output = StorageEntry;
 
@@ -339,16 +333,14 @@ impl Index<usize> for Array {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct Section {
     pub entries: LinkedHashMap<String, StorageEntry>,
 }
 
 impl Section {
     pub fn new() -> Section {
-        Section {
-            entries: LinkedHashMap::new(),
-        }
+        Default::default()
     }
 
     pub fn with_capacity(capacity: usize) -> Section {
@@ -367,8 +359,8 @@ impl Section {
         self.entries.len()
     }
 
-    pub fn into_iter(self) -> linked_hash_map::IntoIter<String, StorageEntry> {
-        self.entries.into_iter()
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
     }
 
     fn read<B: Buf>(buf: &mut B) -> Result<Section> {
@@ -392,6 +384,16 @@ impl Section {
             write_name(buf, &*name);
             StorageEntry::write(buf, &entry);
         }
+    }
+}
+
+impl IntoIterator for Section {
+    type Item = (String, StorageEntry);
+
+    type IntoIter = linked_hash_map::IntoIter<String, StorageEntry>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.entries.into_iter()
     }
 }
 
@@ -433,11 +435,11 @@ fn read_buf<B: Buf>(buf: &mut B) -> Result<Vec<u8>> {
     Ok(b)
 }
 
-fn write_buf(buf: &mut BytesMut, b: &Vec<u8>) {
+fn write_buf(buf: &mut BytesMut, b: &[u8]) {
     raw_size::write(buf, b.len());
 
     buf.reserve(b.len());
-    buf.put(b.as_slice());
+    buf.put(b);
 }
 
 fn write_name(buf: &mut BytesMut, name: &str) {

@@ -6,9 +6,8 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use bytes::{Buf, BufMut, BytesMut, LittleEndian};
-use Error;
-use Result;
+use crate::Error;
+use bytes::{Buf, BufMut, BytesMut};
 
 pub const PORTABLE_STORAGE_SIGNATUREA: u32 = 0x01011101;
 pub const PORTABLE_STORAGE_SIGNATUREB: u32 = 0x01020101;
@@ -35,12 +34,12 @@ impl StorageBlockHeader {
         self.version == PORTABLE_STORAGE_FORMAT_VER
     }
 
-    pub fn read<B: Buf>(buf: &mut B) -> Result<Self> {
+    pub fn read<B: Buf>(buf: &mut B) -> Result<Self, Error> {
         ensure_eof!(buf, PORTABLE_STORAGE_BLOCK_HEADER_LENGTH);
 
         let hdr = StorageBlockHeader {
-            signature_a: buf.get_u32::<LittleEndian>(),
-            signature_b: buf.get_u32::<LittleEndian>(),
+            signature_a: buf.get_u32_le(),
+            signature_b: buf.get_u32_le(),
             version: buf.get_u8(),
         };
 
@@ -53,8 +52,8 @@ impl StorageBlockHeader {
 
     pub fn write(buf: &mut BytesMut) {
         buf.reserve(PORTABLE_STORAGE_BLOCK_HEADER_LENGTH);
-        buf.put_u32::<LittleEndian>(PORTABLE_STORAGE_SIGNATUREA);
-        buf.put_u32::<LittleEndian>(PORTABLE_STORAGE_SIGNATUREB);
+        buf.put_u32_le(PORTABLE_STORAGE_SIGNATUREA);
+        buf.put_u32_le(PORTABLE_STORAGE_SIGNATUREB);
         buf.put_u8(PORTABLE_STORAGE_FORMAT_VER);
     }
 }

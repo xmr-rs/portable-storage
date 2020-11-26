@@ -6,15 +6,15 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+use crate::{Section, StorageEntry};
 use linked_hash_map::LinkedHashMap;
-
-use serde::de::{
-    value::Error, Deserialize, DeserializeSeed, Deserializer, Error as ErrorTrait, MapAccess,
-    SeqAccess, Visitor,
+use serde::{
+    de::{
+        value::Error, DeserializeSeed, Deserializer, Error as ErrorTrait, MapAccess, SeqAccess,
+        Visitor,
+    },
+    forward_to_deserialize_any, Deserialize,
 };
-
-use Section;
-use StorageEntry;
 
 pub fn from_section<'de, T: Deserialize<'de>>(section: Section) -> Result<T, Error> {
     T::deserialize(SectionDeserializer(section))

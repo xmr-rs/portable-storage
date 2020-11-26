@@ -6,14 +6,6 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-extern crate bytes;
-extern crate serde;
-extern crate uuid;
-
-extern crate failure;
-#[macro_use]
-extern crate failure_derive;
-
 mod blob;
 mod bytes_uuid;
 

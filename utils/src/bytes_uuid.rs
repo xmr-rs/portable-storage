@@ -6,14 +6,11 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use std::fmt;
-
-use uuid;
-
 use serde::{
     de::{Deserialize, Deserializer, Error, Visitor},
     ser::{Serialize, Serializer},
 };
+use std::fmt;
 
 #[derive(Debug, Default, Clone, Eq, PartialEq, Hash)]
 pub struct BytesUuid(pub uuid::Uuid);

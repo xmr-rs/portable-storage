@@ -6,15 +6,12 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+use crate::{Array, Section, StorageEntry};
 use serde::{
     de::value::Error,
-    ser::{Error as ErrorTrait, Impossible, Serialize, SerializeSeq, SerializeStruct},
-    Serializer,
+    ser::{Error as ErrorTrait, Impossible, SerializeSeq, SerializeStruct},
+    Serialize, Serializer,
 };
-
-use Array;
-use Section;
-use StorageEntry;
 
 pub fn to_section<T: Serialize>(v: &T) -> Result<Section, Error> {
     v.serialize(RootSectionSerializer)
