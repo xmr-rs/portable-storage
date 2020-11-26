@@ -39,7 +39,7 @@ impl<'de> Deserialize<'de> for BytesUuid {
             where
                 E: Error,
             {
-                uuid::Uuid::from_bytes(v)
+                uuid::Uuid::from_slice(v)
                     .map(BytesUuid::from)
                     .map_err(E::custom)
             }
