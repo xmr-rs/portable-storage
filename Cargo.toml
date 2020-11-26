@@ -11,8 +11,7 @@ members = ["utils"]
 
 [dependencies]
 bytes = "0.6"
-failure = "0.1"
-failure_derive = "0.1"
+thiserror = "1"
 linked-hash-map = "0.5"
 serde = "1"
 

@@ -7,9 +7,9 @@
 // except according to those terms.
 
 use bytes::{Buf, BufMut, BytesMut};
-use failure::Fail;
 use linked_hash_map::LinkedHashMap;
 use std::ops::Index;
+use thiserror::Error;
 
 pub mod de;
 pub mod ser;
@@ -31,15 +31,15 @@ pub mod raw_size;
 
 pub type Result<T> = ::std::result::Result<T, Error>;
 
-#[derive(Debug, Clone, Fail)]
+#[derive(Debug, Clone, Error)]
 pub enum Error {
-    #[fail(display = "reached EOF, needed {}", needed)]
+    #[error("reached EOF, needed {}", needed)]
     UnexpectedEof { needed: usize },
-    #[fail(display = "the header isn't valid")]
+    #[error("the header isn't valid")]
     InvalidHeader,
-    #[fail(display = "the storage entry serialize type isn't valid ({:X})", _0)]
+    #[error("the storage entry serialize type isn't valid ({:X})", _0)]
     InvalidSerializeType(u8),
-    #[fail(display = "the array serialize type isn't valid ({:X})", _0)]
+    #[error("the array serialize type isn't valid ({:X})", _0)]
     InvalidArrayType(u8),
 }
 
