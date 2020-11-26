@@ -152,68 +152,68 @@ impl StorageEntry {
     }
 
     fn write(buf: &mut BytesMut, entry: &Self) {
-        match *entry {
-            StorageEntry::U64(ref v) => {
+        match entry {
+            StorageEntry::U64(v) => {
                 buf.reserve(9);
                 buf.put_u8(SERIALIZE_TYPE_UINT64);
                 buf.put_u64_le(*v);
             }
-            StorageEntry::U32(ref v) => {
+            StorageEntry::U32(v) => {
                 buf.reserve(5);
                 buf.put_u8(SERIALIZE_TYPE_UINT32);
                 buf.put_u32_le(*v);
             }
-            StorageEntry::U16(ref v) => {
+            StorageEntry::U16(v) => {
                 buf.reserve(3);
                 buf.put_u8(SERIALIZE_TYPE_UINT16);
                 buf.put_u16_le(*v);
             }
-            StorageEntry::U8(ref v) => {
+            StorageEntry::U8(v) => {
                 buf.reserve(2);
                 buf.put_u8(SERIALIZE_TYPE_UINT8);
                 buf.put_u8(*v);
             }
-            StorageEntry::I64(ref v) => {
+            StorageEntry::I64(v) => {
                 buf.reserve(9);
                 buf.put_u8(SERIALIZE_TYPE_INT64);
                 buf.put_i64_le(*v);
             }
-            StorageEntry::I32(ref v) => {
+            StorageEntry::I32(v) => {
                 buf.reserve(5);
                 buf.put_u8(SERIALIZE_TYPE_INT32);
                 buf.put_i32_le(*v);
             }
-            StorageEntry::I16(ref v) => {
+            StorageEntry::I16(v) => {
                 buf.reserve(3);
                 buf.put_u8(SERIALIZE_TYPE_INT16);
                 buf.put_i16_le(*v);
             }
-            StorageEntry::I8(ref v) => {
+            StorageEntry::I8(v) => {
                 buf.reserve(2);
                 buf.put_u8(SERIALIZE_TYPE_INT8);
                 buf.put_i8(*v);
             }
-            StorageEntry::Double(ref v) => {
+            StorageEntry::Double(v) => {
                 buf.reserve(9);
                 buf.put_u8(SERIALIZE_TYPE_DOUBLE);
                 buf.put_f64_le(*v);
             }
-            StorageEntry::Bool(ref v) => {
+            StorageEntry::Bool(v) => {
                 buf.reserve(2);
                 buf.put_u8(SERIALIZE_TYPE_BOOL);
                 buf.put_u8(if !v { 0 } else { 1 });
             }
-            StorageEntry::Buf(ref v) => {
+            StorageEntry::Buf(v) => {
                 buf.reserve(1);
                 buf.put_u8(SERIALIZE_TYPE_STRING);
                 write_buf(buf, v);
             }
-            StorageEntry::Array(ref v) => {
+            StorageEntry::Array(v) => {
                 buf.reserve(1);
                 buf.put_u8(SERIALIZE_TYPE_ARRAY);
                 Array::write(buf, v);
             }
-            StorageEntry::Section(ref v) => {
+            StorageEntry::Section(v) => {
                 buf.reserve(1);
                 buf.put_u8(SERIALIZE_TYPE_OBJECT);
                 Section::write(buf, v);
@@ -222,7 +222,7 @@ impl StorageEntry {
     }
 
     fn serialize_type(&self) -> u8 {
-        match *self {
+        match self {
             StorageEntry::U64(_) => SERIALIZE_TYPE_UINT64,
             StorageEntry::U32(_) => SERIALIZE_TYPE_UINT32,
             StorageEntry::U16(_) => SERIALIZE_TYPE_UINT16,
@@ -267,13 +267,12 @@ impl Array {
     }
 
     pub fn push(&mut self, entry: StorageEntry) -> std::result::Result<(), ()> {
-        match self.serialize_type {
-            Some(serialize_type) => {
-                if serialize_type & SERIALIZE_FLAG_ARRAY != entry.serialize_type() {
-                    return Err(());
-                }
+        if let Some(serialize_type) = self.serialize_type {
+            if serialize_type & SERIALIZE_FLAG_ARRAY != entry.serialize_type() {
+                return Err(());
             }
-            None => self.serialize_type = Some(entry.serialize_type() | SERIALIZE_FLAG_ARRAY),
+        } else {
+            self.serialize_type = Some(entry.serialize_type() | SERIALIZE_FLAG_ARRAY);
         }
 
         self.array.push(entry);

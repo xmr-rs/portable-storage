@@ -163,11 +163,11 @@ impl<'de> SeqAccess<'de> for ArrayDeserializer {
     where
         T: DeserializeSeed<'de>,
     {
-        match self.0.next() {
-            Some(element) => seed
-                .deserialize(StorageEntryDeserializer(element))
-                .map(Some),
-            None => Ok(None),
+        if let Some(element) = self.0.next() {
+            seed.deserialize(StorageEntryDeserializer(element))
+                .map(Some)
+        } else {
+            Ok(None)
         }
     }
 
@@ -212,13 +212,12 @@ impl<'de> MapAccess<'de> for MapDeserializer {
     where
         K: DeserializeSeed<'de>,
     {
-        match self.iter.next() {
-            Some((key, value)) => {
-                self.value = Some(value);
-                let key_de = KeyDeserializer { key };
-                seed.deserialize(key_de).map(Some)
-            }
-            None => Ok(None),
+        if let Some((key, value)) = self.iter.next() {
+            self.value = Some(value);
+            let key_de = KeyDeserializer { key };
+            seed.deserialize(key_de).map(Some)
+        } else {
+            Ok(None)
         }
     }
 
@@ -226,10 +225,11 @@ impl<'de> MapAccess<'de> for MapDeserializer {
     where
         V: DeserializeSeed<'de>,
     {
-        match self.value.take() {
-            Some(value) => seed.deserialize(StorageEntryDeserializer(value)),
-            None => Err(Error::custom("seed value is missing")),
-        }
+        let value = self
+            .value
+            .take()
+            .ok_or_else(|| Error::custom("seed value is missing"))?;
+        seed.deserialize(StorageEntryDeserializer(value))
     }
 
     fn size_hint(&self) -> Option<usize> {

@@ -423,14 +423,11 @@ pub mod tests {
         };
 
         let section = to_section(&test_vector_0).unwrap();
-        match section["id"] {
-            StorageEntry::U8(56) => (),
-            _ => panic!(),
-        }
+        assert!(matches!(section["id"], StorageEntry::U8(56)));
 
-        match section["transaction_proof"] {
-            StorageEntry::U32(1337) => (),
-            _ => panic!(),
-        }
+        assert!(matches!(
+            section["transaction_proof"],
+            StorageEntry::U32(1337)
+        ));
     }
 }
