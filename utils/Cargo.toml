@@ -2,9 +2,9 @@
 name = "portable-storage-utils"
 version = "0.1.0"
 authors = ["Jean Pierre Dudey <jeandudey@hotmail.com>"]
-license = "MIT/Apache-2.0"
+license = "Apache-2.0"
+include = ["LICENSE"]
 edition = "2018"
-include = ["LICENSE-APACHE", "LICENSE-MIT"]
 
 [dependencies]
 bytes = "0.6"
