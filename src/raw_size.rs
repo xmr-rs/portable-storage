@@ -51,10 +51,10 @@ pub fn write(buf: &mut BytesMut, val: usize) {
     } else if val <= 16383 {
         buf.reserve(2);
         buf.put_u16_le(((val as u16) << 2) | PORTABLE_RAW_SIZE_MARK_WORD as u16);
-    } else if val <= 1073741823 {
+    } else if val <= 1_073_741_823 {
         buf.reserve(4);
         buf.put_u32_le(((val as u32) << 2) | PORTABLE_RAW_SIZE_MARK_DWORD as u32);
-    } else if val as u64 <= 4611686018427387903 {
+    } else if val as u64 <= 4_611_686_018_427_387_903 {
         buf.reserve(8);
         buf.put_u64_le(((val as u64) << 2) | PORTABLE_RAW_SIZE_MARK_INT64 as u64);
     } else {
