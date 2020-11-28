@@ -13,52 +13,138 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//! # Raw size
+//!
+//! "Raw size" (that's how the monero's epee library calls it) are a form of variable size integers
+//! (VarInt) used in the portable storage serialization format.
+//!
+//! # Usage
+//!
+//! This API is used internally by the serializer but can also be used directly if needed, the
+//! usage is very simple, to write a raw size into a `bytes::BytesMut` buffer you simply do:
+//!
+//! ```rust
+//! use bytes::BytesMut;
+//!
+//! let mut buf = BytesMut::new();
+//! let our_int_value = 10;
+//! portable_storage::raw_size::write(&mut buf, our_int_value);
+//! ```
+//!
+//! And to read a raw size from a `bytes::Buf`:
+//!
+//! ```rust
+//! use bytes::Bytes;
+//!
+//! const BUF: &[u8] = &[0xFC];
+//!
+//! let mut bytes = Bytes::from(BUF);
+//! let value = portable_storage::raw_size::read(&mut bytes).unwrap();
+//! assert_eq!(value, 63);
+//! ```
+
 use crate::Error;
 use bytes::{Buf, BufMut, BytesMut};
 
-pub const PORTABLE_RAW_SIZE_MARK_MASK: u8 = 0x03;
-pub const PORTABLE_RAW_SIZE_MARK_BYTE: u8 = 0;
-pub const PORTABLE_RAW_SIZE_MARK_WORD: u8 = 1;
-pub const PORTABLE_RAW_SIZE_MARK_DWORD: u8 = 2;
-pub const PORTABLE_RAW_SIZE_MARK_INT64: u8 = 3;
+/// The size in bits of the raw size marker.
+pub const MARK_BIT_SIZE: usize = 2;
+/// The mask of the marker.
+pub const MARK_MASK: u8 = 0x03;
+/// Mark type for a single byte raw size.
+pub const MARK_U8: u8 = 0;
+/// Mark type for a two bytes raw size.
+pub const MARK_U16: u8 = 1;
+/// Mark type for a four bytes raw size.
+pub const MARK_U32: u8 = 2;
+/// Mark type for a eight bytes raw size.
+pub const MARK_U64: u8 = 3;
 
-pub fn read<B: Buf>(buf: &mut B) -> Result<usize, Error> {
+/// Maximum integer value that can be stored on a single byte.
+pub const U8_MAX: u64 = (1 << (8 - MARK_BIT_SIZE)) - 1;
+/// Maximum integer value that can be stored on two bytes.
+pub const U16_MAX: u64 = (1 << (16 - MARK_BIT_SIZE)) - 1;
+/// Maximum integer value that can be stored on four bytes.
+pub const U32_MAX: u64 = (1 << (32 - MARK_BIT_SIZE)) - 1;
+/// Maximum integer value that can be stored on eight bytes.
+pub const U64_MAX: u64 = (1 << (64 - MARK_BIT_SIZE)) - 1;
+
+/// Reads a "raw size" value from `buf`.
+///
+/// # Errors
+///
+/// This function may return an `Error::UnexpectedEof` error if `buf` doesn't
+/// hold the needed bytes that the raw size marker specifies.
+pub fn read<B: Buf>(buf: &mut B) -> Result<u64, Error> {
     ensure_eof!(buf, 1);
-    let mark = buf.bytes()[0] & PORTABLE_RAW_SIZE_MARK_MASK;
+    let mark = buf.bytes()[0] & MARK_MASK;
 
     match mark {
-        PORTABLE_RAW_SIZE_MARK_BYTE => Ok((buf.get_u8() >> 2) as usize),
-        PORTABLE_RAW_SIZE_MARK_WORD => {
+        MARK_U8 => Ok((buf.get_u8() >> 2) as u64),
+        MARK_U16 => {
             ensure_eof!(buf, 2);
-            Ok((buf.get_u16_le() >> 2) as usize)
+            Ok((buf.get_u16_le() >> 2) as u64)
         }
-        PORTABLE_RAW_SIZE_MARK_DWORD => {
+        MARK_U32 => {
             ensure_eof!(buf, 4);
-            Ok((buf.get_u32_le() >> 2) as usize)
+            Ok((buf.get_u32_le() >> 2) as u64)
         }
-        PORTABLE_RAW_SIZE_MARK_INT64 => {
+        MARK_U64 => {
             ensure_eof!(buf, 8);
-            Ok((buf.get_u64_le() >> 2) as usize)
+            Ok(buf.get_u64_le() >> 2)
         }
+        // The MARK_MASK ensures no other values are valid,
+        // so it's unreachable.
         _ => unreachable!(),
     }
 }
 
-pub fn write(buf: &mut BytesMut, val: usize) {
-    if val <= 63 {
+/// Writes the value onto `buf` as a "raw size" integer.
+///
+/// # Panics
+///
+/// This function will panic if the provided `val` value is higher or equal to
+/// `U64_MAX` which is the maximum value that can be stored.
+pub fn write(buf: &mut BytesMut, val: u64) {
+    if val <= U8_MAX {
         buf.reserve(1);
-        buf.put_u8(((val as u8) << 2) | PORTABLE_RAW_SIZE_MARK_BYTE);
-    } else if val <= 16383 {
+        buf.put_u8(((val as u8) << 2) | MARK_U8);
+    } else if val <= U16_MAX {
         buf.reserve(2);
-        buf.put_u16_le(((val as u16) << 2) | PORTABLE_RAW_SIZE_MARK_WORD as u16);
-    } else if val <= 1_073_741_823 {
+        buf.put_u16_le(((val as u16) << 2) | MARK_U16 as u16);
+    } else if val <= U32_MAX {
         buf.reserve(4);
-        buf.put_u32_le(((val as u32) << 2) | PORTABLE_RAW_SIZE_MARK_DWORD as u32);
-    } else if val as u64 <= 4_611_686_018_427_387_903 {
+        buf.put_u32_le(((val as u32) << 2) | MARK_U32 as u32);
+    } else if val <= U64_MAX {
         buf.reserve(8);
-        buf.put_u64_le(((val as u64) << 2) | PORTABLE_RAW_SIZE_MARK_INT64 as u64);
+        buf.put_u64_le(((val as u64) << 2) | MARK_U64 as u64);
     } else {
-        // XXX: Hope some day monero never uses a value too large.
-        panic!("too large");
+        panic!("the value is too big to be stored on a raw size variable integer");
+    }
+}
+
+#[cfg(test)]
+pub mod tests {
+    use super::*;
+
+    #[test]
+    fn roundtrip() {
+        const SIZES: &[(u64, usize)] = &[(U8_MAX, 1), (U16_MAX, 2), (U32_MAX, 4), (U64_MAX, 8)];
+
+        for (value, size_in_bytes) in SIZES {
+            let mut buf = BytesMut::new();
+            write(&mut buf, *value);
+            assert_eq!(buf.len(), *size_in_bytes);
+
+            let mut buf = buf.freeze();
+            let readed_value = read(&mut buf).unwrap();
+            assert_eq!(readed_value, *value);
+        }
+    }
+
+    #[test]
+    #[should_panic]
+    fn too_big() {
+        let mut buf = BytesMut::new();
+        write(&mut buf, U64_MAX + 1);
     }
 }
