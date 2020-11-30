@@ -15,7 +15,7 @@
 
 use bytes::{Buf, BufMut, BytesMut};
 use linked_hash_map::LinkedHashMap;
-use std::ops::Index;
+use std::{convert::TryFrom, ops::Index};
 use thiserror::Error;
 
 pub mod de;
@@ -48,6 +48,8 @@ pub enum Error {
     InvalidSerializeType(u8),
     #[error("the array serialize type isn't valid ({:X})", _0)]
     InvalidArrayType(u8),
+    #[error("the storage entry size is too big for this machine ({})", _0)]
+    StorageEntryTooBig(u64),
 }
 
 const SERIALIZE_TYPE_INT64: u8 = 1;
@@ -294,7 +296,8 @@ impl Array {
             serialize_type &= !SERIALIZE_FLAG_ARRAY;
         }
 
-        let size = raw_size::read::<B>(buf)?;
+        let size = raw_size::read::<B>(buf)
+            .and_then(|size| usize::try_from(size).map_err(|_| Error::StorageEntryTooBig(size)))?;
 
         let mut array = Array {
             array: Vec::with_capacity(size),
@@ -314,7 +317,7 @@ impl Array {
     fn write(buf: &mut BytesMut, array: &Array) {
         buf.reserve(1);
         buf.put_u8(array.serialize_type.unwrap());
-        raw_size::write(buf, array.array.len());
+        raw_size::write(buf, array.array.len() as u64);
         for entry in array.array.iter() {
             StorageEntry::write(buf, &entry);
         }
@@ -371,7 +374,9 @@ impl Section {
 
     fn read<B: Buf>(buf: &mut B) -> Result<Section> {
         let mut section = Section::new();
-        let count = raw_size::read::<B>(buf)?;
+        let count = raw_size::read::<B>(buf).and_then(|count| {
+            usize::try_from(count).map_err(|_| Error::StorageEntryTooBig(count))
+        })?;
 
         section.entries.reserve(count);
         for _ in 0..count {
@@ -384,7 +389,7 @@ impl Section {
     }
 
     fn write(buf: &mut BytesMut, section: &Self) {
-        raw_size::write(buf, section.entries.len());
+        raw_size::write(buf, section.entries.len() as u64);
 
         for (name, entry) in section.entries.iter() {
             write_name(buf, &*name);
@@ -432,7 +437,9 @@ fn read_name<B: Buf>(buf: &mut B) -> Result<String> {
 }
 
 fn read_buf<B: Buf>(buf: &mut B) -> Result<Vec<u8>> {
-    let length = raw_size::read::<B>(buf)?;
+    let length = raw_size::read::<B>(buf).and_then(|length| {
+        usize::try_from(length).map_err(|_| Error::StorageEntryTooBig(length))
+    })?;
     ensure_eof!(buf, length);
 
     let mut b = Vec::with_capacity(length);
@@ -442,7 +449,7 @@ fn read_buf<B: Buf>(buf: &mut B) -> Result<Vec<u8>> {
 }
 
 fn write_buf(buf: &mut BytesMut, b: &[u8]) {
-    raw_size::write(buf, b.len());
+    raw_size::write(buf, b.len() as u64);
 
     buf.reserve(b.len());
     buf.put(b);
