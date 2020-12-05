@@ -6,6 +6,7 @@ protocol as the serialization format for messages.
 # License
 
 <sup>Copyright 2018-2020 Jean Pierre Dudey <me@jeandudey.tech></sup>
+<br>
 <sup>Copyright 2020 Artem Vorotnikov <artem@vorotnikov.me></sup>
 
 <sup>Licensed under the Apache License, Version 2.0 (the "License");</sup>
