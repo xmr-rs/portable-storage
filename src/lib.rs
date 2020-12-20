@@ -279,10 +279,11 @@ impl Array {
         self.len() == 0
     }
 
-    pub fn push(&mut self, entry: StorageEntry) -> std::result::Result<(), ()> {
+    pub fn push(&mut self, entry: StorageEntry) -> std::result::Result<(), Error> {
         if let Some(serialize_type) = self.serialize_type {
-            if serialize_type & SERIALIZE_FLAG_ARRAY != entry.serialize_type() {
-                return Err(());
+            let entry_type = entry.serialize_type();
+            if serialize_type & SERIALIZE_FLAG_ARRAY != entry_type {
+                return Err(Error::InvalidSerializeType(entry_type));
             }
         } else {
             self.serialize_type = Some(entry.serialize_type() | SERIALIZE_FLAG_ARRAY);
