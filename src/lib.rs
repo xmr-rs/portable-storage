@@ -50,6 +50,8 @@ pub enum Error {
     InvalidArrayType(u8),
     #[error("the storage entry size is too big for this machine ({})", _0)]
     StorageEntryTooBig(u64),
+    #[error("wrong type sequence")]
+    WrongTypeSequence,
 }
 
 const SERIALIZE_TYPE_INT64: u8 = 1;
@@ -86,6 +88,7 @@ pub enum StorageEntry {
 
 impl StorageEntry {
     fn read<B: Buf>(buf: &mut B) -> Result<StorageEntry> {
+        ensure_eof!(buf, 1);
         let serialize_type = buf.get_u8();
         if serialize_type & SERIALIZE_FLAG_ARRAY == SERIALIZE_FLAG_ARRAY {
             let arr = Array::read::<B>(buf, serialize_type)?;
@@ -144,9 +147,10 @@ impl StorageEntry {
             SERIALIZE_TYPE_OBJECT => StorageEntry::Section(Section::read::<B>(buf)?),
             SERIALIZE_TYPE_ARRAY => {
                 ensure_eof!(buf, 1);
+
                 let serialize_type = buf.get_u8();
                 if serialize_type & SERIALIZE_FLAG_ARRAY != SERIALIZE_FLAG_ARRAY {
-                    panic!();
+                    return Err(Error::WrongTypeSequence);
                 }
 
                 let arr = Array::read::<B>(buf, serialize_type)?;
@@ -275,10 +279,11 @@ impl Array {
         self.len() == 0
     }
 
-    pub fn push(&mut self, entry: StorageEntry) -> std::result::Result<(), ()> {
+    pub fn push(&mut self, entry: StorageEntry) -> std::result::Result<(), Error> {
         if let Some(serialize_type) = self.serialize_type {
-            if serialize_type & SERIALIZE_FLAG_ARRAY != entry.serialize_type() {
-                return Err(());
+            let entry_type = entry.serialize_type();
+            if serialize_type & SERIALIZE_FLAG_ARRAY != entry_type {
+                return Err(Error::InvalidSerializeType(entry_type));
             }
         } else {
             self.serialize_type = Some(entry.serialize_type() | SERIALIZE_FLAG_ARRAY);
@@ -300,10 +305,12 @@ impl Array {
             .and_then(|size| usize::try_from(size).map_err(|_| Error::StorageEntryTooBig(size)))?;
 
         let mut array = Array {
-            array: Vec::with_capacity(size),
+            array: Vec::new(),
             serialize_type: Some(orig_serialize_type),
         };
-        array.array.reserve(size);
+        // TODO(jeandudey): same bug as in Section::read, check it out before
+        // uncommenting this, potential DDoS.
+        // array.array.reserve(size);
 
         for _ in 0..size {
             array
@@ -378,7 +385,16 @@ impl Section {
             usize::try_from(count).map_err(|_| Error::StorageEntryTooBig(count))
         })?;
 
-        section.entries.reserve(count);
+        // TODO(jeandudey): this statement gives some performance, but it's
+        // disabled since it can be easily abused because we don't have a way
+        // to check for the byte size of the sections count to check for EOF
+        // and validity.
+        //
+        // Gentle reminder: check if Monero suffers from this same problem to
+        // avoid a DDoS by triggering OOM errors.
+
+        // section.entries.reserve(count);
+
         for _ in 0..count {
             let name = read_name::<B>(buf)?;
             let entry = StorageEntry::read::<B>(buf)?;
